@@ -1,0 +1,1104 @@
+// StudentNest — Prisma schema (PostgreSQL)
+// Normalized design with UUID primary keys, status enums, soft deletes,
+// and indexes optimized for property search and review queries.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum Role {
+  STUDENT
+  LANDLORD
+  AGENT
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum TokenType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+/// Who is offering the listing. Always displayed clearly to students.
+enum ListingProviderType {
+  LANDLORD
+  CARETAKER
+  AGENT
+}
+
+enum PropertyStatus {
+  DRAFT
+  PENDING_REVIEW
+  ACTIVE
+  REJECTED
+  SUSPENDED
+  RENTED_OUT
+  DELETED // soft delete
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  SUSPENDED
+}
+
+enum PropertyType {
+  SELF_CONTAIN
+  SINGLE_ROOM
+  FLAT
+  APARTMENT
+  DUPLEX
+  BUNGALOW
+  HOSTEL_ROOM
+  SHARED_ROOM
+  STUDIO
+  OTHER
+}
+
+enum RentPeriod {
+  PER_MONTH
+  PER_SEMESTER
+  PER_SESSION
+  PER_YEAR
+}
+
+enum Furnishing {
+  FURNISHED
+  PARTIALLY_FURNISHED
+  UNFURNISHED
+}
+
+enum AmenityKey {
+  WATER
+  ELECTRICITY
+  GENERATOR
+  SOLAR
+  INTERNET
+  WIFI
+  PARKING
+  KITCHEN
+  LAUNDRY
+  SECURITY
+  FENCED_COMPOUND
+  CCTV
+  PREPAID_METER
+  SHARED_FACILITIES
+  FURNITURE
+  AIR_CONDITIONING
+  WARDROBE
+  EN_SUITE
+  BALCONY
+  TILED_FLOOR
+}
+
+enum WaterSource {
+  BOREHOLE
+  PUBLIC_WATER
+  TANK
+  WELL
+  OTHER
+  NONE
+}
+
+enum InternetType {
+  FIBRE
+  MOBILE_NETWORK
+  WIFI
+  NONE
+}
+
+enum SecurityFeature {
+  FENCED_COMPOUND
+  SECURITY_PERSONNEL
+  CCTV
+  GATE
+}
+
+enum FloodRisk {
+  LOW
+  MEDIUM
+  HIGH
+  UNKNOWN
+}
+
+enum ReviewStatus {
+  PUBLISHED
+  UNDER_REVIEW
+  HIDDEN
+  REJECTED
+  DISPUTED
+}
+
+enum ReviewVerification {
+  VERIFIED_STAY
+  VERIFIED_REVIEWER
+  UNVERIFIED
+}
+
+enum ReviewCategory {
+  ELECTRICITY
+  WATER
+  SECURITY
+  INTERNET
+  CLEANLINESS
+  LANDLORD_BEHAVIOUR
+  MAINTENANCE
+  ACCESSIBILITY
+  VALUE_FOR_MONEY
+  NOISE_ENVIRONMENT
+}
+
+enum ReportTargetType {
+  PROPERTY
+  REVIEW
+  USER
+  MESSAGE
+  CONVERSATION
+}
+
+enum ReportReason {
+  FAKE_PROPERTY
+  SCAM
+  IMPERSONATION
+  SUSPICIOUS_PAYMENT_REQUEST
+  HARASSMENT
+  MISLEADING_INFORMATION
+  FAKE_REVIEW
+  UNSAFE_BEHAVIOUR
+  SPAM
+  PERSONAL_INFORMATION
+  THREATS
+  INAPPROPRIATE_CONTENT
+  EXTORTION
+  ADVERTISING
+  OTHER
+}
+
+enum ReportStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
+enum InquiryType {
+  AVAILABILITY
+  VIEWING_REQUEST
+  TOTAL_COST
+  DISTANCE
+  OTHER
+}
+
+enum InquiryStatus {
+  NEW
+  RESPONDED
+  VIEWING_SCHEDULED
+  CLOSED
+}
+
+enum NotificationType {
+  INQUIRY_NEW
+  INQUIRY_RESPONSE
+  MESSAGE_NEW
+  ROOMMATE_MATCH
+  FAVORITE_PRICE_CHANGE
+  FAVORITE_AVAILABLE
+  NEW_MATCHING_PROPERTY
+  REVIEW_RESPONSE
+  REVIEW_RECEIVED
+  LISTING_APPROVED
+  LISTING_REJECTED
+  VERIFICATION_STATUS
+  SUSPICIOUS_ACTIVITY
+  ACCOUNT_ALERT
+}
+
+enum RoommateStatus {
+  ACTIVE
+  PAUSED
+  HIDDEN
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+enum CleanlinessHabit {
+  VERY_TIDY
+  BALANCED
+  RELAXED
+}
+
+enum SleepSchedule {
+  EARLY_BIRD
+  NIGHT_OWL
+  FLEXIBLE
+}
+
+enum StudyHabit {
+  STUDIES_AT_HOME
+  STUDIES_OUTSIDE
+  MIXED
+}
+
+enum SocialPreference {
+  VERY_SOCIAL
+  OCCASIONALLY_SOCIAL
+  QUIET_PRIVATE
+}
+
+enum NoiseTolerance {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum PaymentPurpose {
+  FEATURED_LISTING
+  VERIFIED_LANDLORD_SERVICE
+  LISTING_PROMOTION
+  PREMIUM_TOOLS
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum PaymentProvider {
+  PAYSTACK
+  MOCK
+}
+
+// ---------------------------------------------------------------------------
+// Identity & accounts
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String     @id @default(uuid()) @db.Uuid
+  email         String     @unique
+  passwordHash  String?
+  name          String
+  phone         String?
+  role          Role       @default(STUDENT)
+  status        UserStatus @default(ACTIVE)
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  deletedAt     DateTime?
+
+  profile            Profile?
+  accounts           Account[]
+  tokens             AuthToken[]
+  ownedProperties    Property[]            @relation("PropertyOwner")
+  reviews            Review[]
+  reviewResponses    LandlordResponse[]
+  roommateProfile    RoommateProfile?
+  favoriteProperties FavoriteProperty[]
+  favoriteRoommates  FavoriteRoommate[]
+  savedSearches      SavedSearch[]
+  sentMessages       Message[]
+  inquiriesAsStudent Inquiry[]             @relation("InquiryStudent")
+  inquiriesAsOwner   Inquiry[]             @relation("InquiryOwner")
+  notifications      Notification[]
+  reportsFiled       Report[]              @relation("ReportReporter")
+  verificationRequests VerificationRequest[] @relation("VerificationSubject")
+  auditActions       AuditLog[]
+  payments           Payment[]
+  propertyVerificationsReviewed PropertyVerification[] @relation("PropertyVerifier")
+  accountVerificationsReviewed  VerificationRequest[]  @relation("AccountVerifier")
+  reviewsModerated   Review[]              @relation("ReviewModerator")
+  reportsHandled     Report[]              @relation("ReportHandler")
+
+  @@index([role, status])
+  @@index([createdAt])
+}
+
+/// OAuth-ready account linking. Credentials logins never create rows here.
+model Account {
+  id                String @id @default(uuid()) @db.Uuid
+  userId            String @db.Uuid
+  provider          String
+  providerAccountId String
+  createdAt         DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model AuthToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  type      TokenType
+  /// Stored hashed — raw tokens are never persisted.
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+}
+
+model Profile {
+  id           String  @id @default(uuid()) @db.Uuid
+  userId       String  @unique @db.Uuid
+  displayName  String?
+  avatarUrl    String?
+  bio          String?
+  gender       Gender?
+  universityId String? @db.Uuid
+  campusId     String? @db.Uuid
+  facultyId    String? @db.Uuid
+  departmentId String? @db.Uuid
+  level        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  university   University? @relation(fields: [universityId], references: [id], onDelete: SetNull)
+  campus       Campus?     @relation(fields: [campusId], references: [id], onDelete: SetNull)
+  faculty      Faculty?    @relation(fields: [facultyId], references: [id], onDelete: SetNull)
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  notificationPreference NotificationPreference?
+
+  @@index([universityId])
+}
+
+model NotificationPreference {
+  id               String  @id @default(uuid()) @db.Uuid
+  profileId        String  @unique @db.Uuid
+  emailEnabled     Boolean @default(true)
+  inquiryEmails    Boolean @default(true)
+  messageEmails    Boolean @default(true)
+  matchEmails      Boolean @default(true)
+  reviewEmails     Boolean @default(true)
+  marketingEmails  Boolean @default(false)
+  pushEnabled      Boolean @default(true)
+  updatedAt        DateTime @updatedAt
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// Universities & locations
+// ---------------------------------------------------------------------------
+
+model University {
+  id        String  @id @default(uuid()) @db.Uuid
+  name      String
+  shortName String  @unique // e.g. UNIZIK
+  slug      String  @unique
+  city      String
+  state     String
+  country   String  @default("Nigeria")
+  /// Demo/seed rows are clearly marked and never presented as real data.
+  isDemoData Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  campuses     Campus[]
+  faculties    Faculty[]
+  properties   Property[]
+  profiles     Profile[]
+  roommateProfiles RoommateProfile[]
+
+  @@index([slug])
+}
+
+model Campus {
+  id           String   @id @default(uuid()) @db.Uuid
+  universityId String   @db.Uuid
+  name         String
+  slug         String
+  city         String?
+  /// Approximate campus centre used for distance calculations.
+  latitude     Decimal? @db.Decimal(9, 6)
+  longitude    Decimal? @db.Decimal(9, 6)
+  isDemoData   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  university       University        @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  properties       Property[]
+  profiles         Profile[]
+  roommateProfiles RoommateProfile[]
+
+  @@unique([universityId, slug])
+  @@index([universityId])
+}
+
+model Faculty {
+  id           String   @id @default(uuid()) @db.Uuid
+  universityId String   @db.Uuid
+  name         String
+  createdAt    DateTime @default(now())
+
+  university   University   @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  departments  Department[]
+  profiles     Profile[]
+
+  @@unique([universityId, name])
+  @@index([universityId])
+}
+
+model Department {
+  id        String @id @default(uuid()) @db.Uuid
+  facultyId String @db.Uuid
+  name      String
+  createdAt DateTime @default(now())
+
+  faculty  Faculty   @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+  profiles Profile[]
+
+  @@unique([facultyId, name])
+  @@index([facultyId])
+}
+
+/// Popular student areas / neighborhoods, configurable by admins.
+model Neighborhood {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  slug      String   @unique
+  city      String
+  state     String
+  latitude  Decimal? @db.Decimal(9, 6)
+  longitude Decimal? @db.Decimal(9, 6)
+  isDemoData Boolean @default(false)
+  createdAt DateTime @default(now())
+
+  properties Property[]
+
+  @@index([city])
+}
+
+// ---------------------------------------------------------------------------
+// Properties
+// ---------------------------------------------------------------------------
+
+model Property {
+  id          String  @id @default(uuid()) @db.Uuid
+  /// SEO-friendly slug, e.g. sunrise-lodge-awka. Globally unique.
+  slug        String  @unique
+  title       String
+  description String
+  /// Owner-stated rules (e.g. no visitors after 10pm). Shown publicly on the listing.
+  houseRules  String?
+
+  ownerId     String  @db.Uuid
+  /// Whether this listing is offered by a landlord, caretaker, or agent.
+  providerType ListingProviderType @default(LANDLORD)
+
+  status             PropertyStatus   @default(DRAFT)
+  verificationStatus VerificationStatus @default(PENDING)
+
+  propertyType PropertyType
+  rentAmount   Int // whole Naira
+  rentPeriod   RentPeriod @default(PER_YEAR)
+  cautionDeposit Int?
+  agencyFee      Int?
+  serviceCharge  Int?
+  bedrooms     Int      @default(1)
+  bathrooms    Int      @default(1)
+  maxOccupants Int      @default(1)
+  furnishing   Furnishing @default(UNFURNISHED)
+
+  availableNow  Boolean   @default(true)
+  availableFrom DateTime?
+
+  universityId  String  @db.Uuid
+  campusId      String? @db.Uuid
+  neighborhoodId String? @db.Uuid
+
+  /// Exact address — private. Only shown to admins/owner unless flagged public.
+  addressLine   String?
+  /// Public-facing area label, e.g. "Awka, Anambra".
+  areaName      String
+  city          String
+  state         String
+
+  latitude          Decimal? @db.Decimal(9, 6)
+  longitude         Decimal? @db.Decimal(9, 6)
+  /// When true the pin is deliberately offset from the exact address for safety.
+  locationApproximate Boolean @default(false)
+  distanceKmToCampus  Decimal? @db.Decimal(6, 2)
+
+  // denormalized aggregates, maintained by services
+  avgRating    Float  @default(0)
+  reviewCount  Int    @default(0)
+  viewCount    Int    @default(0)
+  favoriteCount Int   @default(0)
+  inquiryCount Int    @default(0)
+
+  isFeatured   Boolean   @default(false)
+  featuredUntil DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  owner          User             @relation("PropertyOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  university     University       @relation(fields: [universityId], references: [id], onDelete: Restrict)
+  campus         Campus?          @relation(fields: [campusId], references: [id], onDelete: SetNull)
+  neighborhood   Neighborhood?    @relation(fields: [neighborhoodId], references: [id], onDelete: SetNull)
+
+  images         PropertyImage[]
+  amenities      PropertyAmenity[]
+  features       PropertyFeature[]
+  condition      PropertyCondition?
+  availabilities PropertyAvailability[]
+  verifications  PropertyVerification[]
+  reviews        Review[]
+  inquiries      Inquiry[]
+  favorites      FavoriteProperty[]
+  conversations  Conversation[]
+  payments       Payment[]
+
+  @@index([status, universityId, rentAmount])
+  @@index([status, campusId])
+  @@index([status, verificationStatus])
+  @@index([status, propertyType])
+  @@index([city, status])
+  @@index([avgRating])
+  @@index([createdAt])
+  @@index([ownerId, status])
+  @@index([isFeatured, status])
+}
+
+model PropertyImage {
+  id         String  @id @default(uuid()) @db.Uuid
+  propertyId String  @db.Uuid
+  /// Object-storage URL (Supabase/Cloudinary) or local /uploads path in dev.
+  url        String
+  alt        String?
+  width      Int?
+  height     Int?
+  thumbUrl   String?
+  sortOrder  Int     @default(0)
+  isCover    Boolean @default(false)
+  createdAt  DateTime @default(now())
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId, sortOrder])
+}
+
+model PropertyAmenity {
+  id         String     @id @default(uuid()) @db.Uuid
+  propertyId String     @db.Uuid
+  key        AmenityKey
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([propertyId, key])
+  @@index([key])
+}
+
+/// Free-text structured features (e.g. "Tiled compound", "Water heater").
+model PropertyFeature {
+  id         String @id @default(uuid()) @db.Uuid
+  propertyId String @db.Uuid
+  label      String
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+}
+
+/// Landlord-provided factual condition information.
+/// These are owner claims, NOT platform measurements — the UI must say so.
+model PropertyCondition {
+  id         String @id @default(uuid()) @db.Uuid
+  propertyId String @unique @db.Uuid
+
+  electricityAvailable Boolean @default(true)
+  generatorAvailable   Boolean @default(false)
+  solarAvailable       Boolean @default(false)
+  prepaidMeter         Boolean @default(false)
+
+  waterSource      WaterSource     @default(NONE)
+  internetType     InternetType    @default(NONE)
+  securityFeatures SecurityFeature[]
+
+  /// Landlord estimates, 1 (poor) – 5 (excellent), optional.
+  electricityReliability Int?
+  waterReliability       Int?
+  networkQuality         Int?
+  roadCondition          Int?
+  noiseLevel             Int? // 1 = very quiet, 5 = very noisy
+  cleanliness            Int?
+  floodRisk              FloodRisk @default(UNKNOWN)
+
+  updatedAt DateTime @updatedAt
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+}
+
+model PropertyAvailability {
+  id           String   @id @default(uuid()) @db.Uuid
+  propertyId   String   @db.Uuid
+  roomLabel    String? // e.g. "Room 2B"
+  roomsAvailable Int    @default(1)
+  availableFrom DateTime
+  note         String?
+  createdAt    DateTime @default(now())
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId, availableFrom])
+}
+
+/// One row per verification attempt; the latest row reflects current status
+/// (mirrored on Property.verificationStatus for fast queries).
+model PropertyVerification {
+  id           String   @id @default(uuid()) @db.Uuid
+  propertyId   String   @db.Uuid
+  status       VerificationStatus @default(PENDING)
+  submittedById String  @db.Uuid
+  reviewedById  String? @db.Uuid
+  evidenceNote  String?
+  rejectionReason String?
+  reviewedAt    DateTime?
+  createdAt     DateTime @default(now())
+
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  reviewedBy User?    @relation("PropertyVerifier", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([propertyId, createdAt])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Reviews & trust
+// ---------------------------------------------------------------------------
+
+model Review {
+  id         String @id @default(uuid()) @db.Uuid
+  propertyId String @db.Uuid
+  authorId   String @db.Uuid
+
+  overallRating Int // 1–5
+  title         String?
+  body          String?
+  photos        String[] // storage URLs
+
+  /// Distinguishes multiple stays: derived from stay dates, defaults to "main".
+  /// One review per student per property per stay period.
+  stayKey String @default("main")
+
+  dateStayedFrom DateTime?
+  dateStayedTo   DateTime?
+  stayDurationMonths Int?
+
+  status       ReviewStatus     @default(UNDER_REVIEW)
+  verification ReviewVerification @default(UNVERIFIED)
+
+  isEdited        Boolean  @default(false)
+  editedAt        DateTime?
+  moderationReason String?
+  moderatedById   String?  @db.Uuid
+  moderatedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  property        Property              @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  author          User                  @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  moderatedBy     User?                 @relation("ReviewModerator", fields: [moderatedById], references: [id], onDelete: SetNull)
+  categoryRatings ReviewCategoryRating[]
+  response        LandlordResponse?
+  reports         ReviewReport[]
+
+  @@unique([propertyId, authorId, stayKey])
+  @@index([propertyId, status, createdAt])
+  @@index([authorId])
+  @@index([status])
+  @@index([verification])
+}
+
+model ReviewCategoryRating {
+  id       String         @id @default(uuid()) @db.Uuid
+  reviewId String         @db.Uuid
+  category ReviewCategory
+  rating   Int // 1–5
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewId, category])
+  @@index([category])
+}
+
+/// Public response from the property owner. Owners can respond — never delete
+/// or edit a student's review.
+model LandlordResponse {
+  id       String @id @default(uuid()) @db.Uuid
+  reviewId String @unique @db.Uuid
+  authorId String @db.Uuid
+  body     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  author User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+}
+
+model ReviewReport {
+  id       String       @id @default(uuid()) @db.Uuid
+  reviewId String       @db.Uuid
+  reason   ReportReason
+  details  String?
+  reporterId String?    @db.Uuid
+  anonymous  Boolean    @default(false)
+  status     ReportStatus @default(OPEN)
+  handledById String?   @db.Uuid
+  resolution  String?
+  handledAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([reviewId])
+}
+
+/// Generic report used for properties, users, messages, conversations.
+/// Review reports use ReviewReport (kept separate for FK integrity).
+model Report {
+  id          String           @id @default(uuid()) @db.Uuid
+  targetType  ReportTargetType
+  /// UUID of the reported entity. Indexed; FK enforced at service level so a
+  /// single table can cover multiple target types.
+  targetId    String
+  reason      ReportReason
+  details     String?
+  reporterId  String?          @db.Uuid
+  anonymous   Boolean          @default(false)
+  status      ReportStatus     @default(OPEN)
+  handledById String?          @db.Uuid
+  resolution  String?
+  handledAt   DateTime?
+  createdAt   DateTime         @default(now())
+
+  reporter  User?  @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: SetNull)
+  handledBy User?  @relation("ReportHandler", fields: [handledById], references: [id], onDelete: SetNull)
+
+  @@index([targetType, targetId])
+  @@index([status, createdAt])
+}
+
+/// Landlord/agent identity or ownership verification requests.
+/// submittedData may contain sensitive identity information — never expose
+/// publicly; admin-only access, served over private storage paths.
+model VerificationRequest {
+  id       String   @id @default(uuid()) @db.Uuid
+  userId   String   @db.Uuid
+  type     VerificationType
+  status   VerificationStatus @default(PENDING)
+  submittedData Json?
+  documentUrls  String[]
+  reviewedById  String?  @db.Uuid
+  rejectionReason String?
+  reviewedAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user       User  @relation("VerificationSubject", fields: [userId], references: [id], onDelete: Cascade)
+  reviewedBy User? @relation("AccountVerifier", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([userId])
+}
+
+enum VerificationType {
+  IDENTITY
+  OWNERSHIP
+  AGENCY_LICENSE
+}
+
+// ---------------------------------------------------------------------------
+// Roommates
+// ---------------------------------------------------------------------------
+
+model RoommateProfile {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @unique @db.Uuid
+  status RoommateStatus @default(ACTIVE)
+
+  universityId String  @db.Uuid
+  campusId     String? @db.Uuid
+
+  preferredLocations String[]
+  budgetMin          Int
+  budgetMax          Int
+  preferredRoomType  PropertyType?
+  desiredRoommates   Int      @default(1)
+
+  /// Optional, user-controlled filter only. NEVER used to compute or hide
+  /// compatibility scores — see matching service docs.
+  genderPreference Gender?
+  smoking          Boolean  @default(false)
+  pets             Boolean  @default(false)
+  cleanliness      CleanlinessHabit @default(BALANCED)
+  sleepSchedule    SleepSchedule    @default(FLEXIBLE)
+  studyHabits      StudyHabit       @default(MIXED)
+  socialPreference SocialPreference @default(OCCASIONALLY_SOCIAL)
+  noiseTolerance   NoiseTolerance   @default(MEDIUM)
+  moveInDate       DateTime
+  bio              String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  university University  @relation(fields: [universityId], references: [id], onDelete: Restrict)
+  campus     Campus?     @relation(fields: [campusId], references: [id], onDelete: SetNull)
+  favorites  FavoriteRoommate[]
+  preference RoommatePreference?
+
+  @@index([status, universityId])
+  @@index([budgetMin, budgetMax])
+  @@index([moveInDate])
+}
+
+/// Per-user matching weights (transparent, user-editable).
+model RoommatePreference {
+  id                String @id @default(uuid()) @db.Uuid
+  roommateProfileId String @unique @db.Uuid
+  budgetWeight      Int    @default(25)
+  locationWeight    Int    @default(20)
+  moveInWeight      Int    @default(20)
+  lifestyleWeight   Int    @default(35)
+  updatedAt         DateTime @updatedAt
+
+  roommateProfile RoommateProfile @relation(fields: [roommateProfileId], references: [id], onDelete: Cascade)
+}
+
+model FavoriteRoommate {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @db.Uuid
+  roommateProfileId String   @db.Uuid
+  createdAt         DateTime @default(now())
+
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roommateProfile RoommateProfile @relation(fields: [roommateProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roommateProfileId])
+}
+
+// ---------------------------------------------------------------------------
+// Favorites & saved searches
+// ---------------------------------------------------------------------------
+
+model FavoriteProperty {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  propertyId String   @db.Uuid
+  /// Rent at save time — used to detect price drops for notifications.
+  savedRentAmount Int
+  createdAt  DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, propertyId])
+  @@index([propertyId])
+}
+
+model SavedSearch {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  name      String
+  /// Serialized filter query params (validated on read).
+  query     Json
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Messaging, conversations, inquiries
+// ---------------------------------------------------------------------------
+
+model Conversation {
+  id         String   @id @default(uuid()) @db.Uuid
+  /// Sorted pair key "userAId:userBId" guaranteeing one DM channel per pair
+  /// per subject.
+  participantKey String
+  userAId    String   @db.Uuid
+  userBId    String   @db.Uuid
+  propertyId String?  @db.Uuid
+  /// Subject label: property id, "ROOMMATE", or "GENERAL".
+  subject    String   @default("GENERAL")
+  lastMessageAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  property Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  messages Message[]
+  participants ConversationParticipant[]
+
+  @@unique([participantKey, subject])
+  @@index([userAId, lastMessageAt])
+  @@index([userBId, lastMessageAt])
+}
+
+model ConversationParticipant {
+  id             String   @id @default(uuid()) @db.Uuid
+  conversationId String   @db.Uuid
+  userId         String
+  blockedOther   Boolean  @default(false)
+  hidden         Boolean  @default(false)
+  lastReadAt     DateTime?
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+}
+
+model Message {
+  id             String   @id @default(uuid()) @db.Uuid
+  conversationId String   @db.Uuid
+  senderId       String   @db.Uuid
+  body           String
+  readAt         DateTime?
+  createdAt      DateTime @default(now())
+  deletedAt      DateTime?
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@index([senderId, createdAt])
+}
+
+model Inquiry {
+  id         String @id @default(uuid()) @db.Uuid
+  propertyId String @db.Uuid
+  studentId  String @db.Uuid
+  ownerId    String @db.Uuid
+  type       InquiryType @default(AVAILABILITY)
+  message    String
+  status     InquiryStatus @default(NEW)
+  ownerResponse String?
+  respondedAt   DateTime?
+  viewingDate   DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  student  User     @relation("InquiryStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  owner    User     @relation("InquiryOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId, status, createdAt])
+  @@index([studentId, createdAt])
+  @@index([propertyId])
+}
+
+// ---------------------------------------------------------------------------
+// Notifications
+// ---------------------------------------------------------------------------
+
+model Notification {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  type   NotificationType
+  title  String
+  body   String?
+  link   String?
+  read   Boolean @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Payments (modular; disabled without credentials)
+// ---------------------------------------------------------------------------
+
+model Payment {
+  id      String @id @default(uuid()) @db.Uuid
+  userId  String @db.Uuid
+  purpose PaymentPurpose
+  amountKobo Int
+  currency   String @default("NGN")
+  status     PaymentStatus @default(PENDING)
+  provider   PaymentProvider @default(MOCK)
+  /// Internal unique reference sent to the provider.
+  reference  String @unique
+  providerReference String?
+  propertyId String? @db.Uuid
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  property Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status])
+  @@index([status, createdAt])
+}
+
+model WebhookEvent {
+  id        String @id @default(uuid()) @db.Uuid
+  provider  String
+  eventId   String
+  payload   Json
+  processedAt DateTime?
+  error     String?
+  createdAt DateTime @default(now())
+
+  @@unique([provider, eventId])
+}
+
+// ---------------------------------------------------------------------------
+// Audit
+// ---------------------------------------------------------------------------
+
+/// Records important admin/system actions: listing approval/rejection,
+/// suspensions, moderation, verification decisions, deletions.
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String?  @db.Uuid
+  actorEmail String? // denormalized so logs survive user deletion
+  action     String // e.g. "property.approve", "user.suspend"
+  entityType String
+  entityId   String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+  @@index([action, createdAt])
+}

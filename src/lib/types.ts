@@ -1,0 +1,48 @@
+import type {
+  AmenityKey,
+  PropertyType,
+  RentPeriod,
+  ReviewCategory,
+  ReportReason,
+  InquiryType,
+} from "@prisma/client";
+
+export type {
+  AmenityKey,
+  PropertyType,
+  RentPeriod,
+  ReviewCategory,
+  ReportReason,
+  InquiryType,
+};
+
+export type {
+  Role,
+  UserStatus,
+  PropertyStatus,
+  VerificationStatus,
+  ReviewStatus,
+  ReviewVerification,
+  ReportStatus,
+  ReportTargetType,
+  InquiryStatus,
+  NotificationType,
+  ListingProviderType,
+  Furnishing,
+  WaterSource,
+  InternetType,
+  SecurityFeature,
+  FloodRisk,
+  Gender,
+  RoommateStatus,
+  CleanlinessHabit,
+  SleepSchedule,
+  StudyHabit,
+  SocialPreference,
+  NoiseTolerance,
+  TokenType,
+  VerificationType,
+  PaymentPurpose,
+  PaymentStatus,
+  PaymentProvider,
+} from "@prisma/client";
