@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { StarRating } from "@/components/ui/star-rating";
 import { FavoriteButton } from "@/components/property/favorite-button";
 import { formatNaira, formatDistance } from "@/lib/utils";
-import { PROPERTY_TYPE_LABELS, RENT_PERIOD_LABELS } from "@/lib/constants";
+import { FEATURED_EXPLAINER, PROPERTY_TYPE_LABELS, RENT_PERIOD_LABELS } from "@/lib/constants";
 import type { PropertyCard as PropertyCardData } from "@/lib/services/search.service";
 
 interface PropertyCardProps {
@@ -47,7 +47,7 @@ export function PropertyCard({ property, isFavorited = false, layout = "grid" }:
           </span>
         )}
         {property.isFeatured && (
-          <Badge variant="accent" className="absolute left-2 top-2 shadow">
+          <Badge variant="accent" className="absolute left-2 top-2 shadow" title={FEATURED_EXPLAINER}>
             Featured
           </Badge>
         )}

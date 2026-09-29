@@ -107,13 +107,20 @@ export async function handleReport(
 }
 
 export async function listReports(
-  filters: { status?: string; targetType?: string; page?: number; pageSize?: number } = {},
+  filters: {
+    status?: string;
+    targetType?: string;
+    targetId?: string;
+    page?: number;
+    pageSize?: number;
+  } = {},
 ) {
   const page = filters.page ?? 1;
   const pageSize = Math.min(filters.pageSize ?? 20, 100);
   const where = {
     ...(filters.status ? { status: filters.status as never } : {}),
     ...(filters.targetType ? { targetType: filters.targetType as never } : {}),
+    ...(filters.targetId ? { targetId: filters.targetId } : {}),
   };
   const [items, total] = await Promise.all([
     prisma.report.findMany({
@@ -128,5 +135,65 @@ export async function listReports(
     }),
     prisma.report.count({ where }),
   ]);
-  return { items, total, page, pageSize };
+  return { items, total, page, pageSize, totalPages: Math.max(1, Math.ceil(total / pageSize)) };
+}
+
+/** Review reports live in their own table so the FK to Review is enforced. */
+export async function listReviewReports(
+  filters: { status?: string; page?: number; pageSize?: number } = {},
+) {
+  const page = filters.page ?? 1;
+  const pageSize = Math.min(filters.pageSize ?? 20, 100);
+  const where = { ...(filters.status ? { status: filters.status as never } : {}) };
+  const [items, total] = await Promise.all([
+    prisma.reviewReport.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      include: {
+        review: {
+          select: {
+            id: true,
+            status: true,
+            overallRating: true,
+            title: true,
+            body: true,
+            author: { select: { id: true, name: true } },
+            property: { select: { id: true, title: true, slug: true } },
+          },
+        },
+      },
+    }),
+    prisma.reviewReport.count({ where }),
+  ]);
+  return { items, total, page, pageSize, totalPages: Math.max(1, Math.ceil(total / pageSize)) };
+}
+
+export async function handleReviewReport(
+  admin: { id: string; email: string },
+  reportId: string,
+  action: "REVIEW" | "RESOLVE" | "DISMISS",
+  resolution?: string,
+) {
+  const report = await prisma.reviewReport.findUnique({ where: { id: reportId } });
+  if (!report) throw new ReportError("Report not found", 404);
+
+  const status = action === "REVIEW" ? "UNDER_REVIEW" : action === "RESOLVE" ? "RESOLVED" : "DISMISSED";
+
+  const updated = await prisma.reviewReport.update({
+    where: { id: reportId },
+    data: { status, resolution: resolution ?? null, handledById: admin.id, handledAt: new Date() },
+  });
+
+  await auditLog({
+    actorId: admin.id,
+    actorEmail: admin.email,
+    action: `review_report.${action.toLowerCase()}`,
+    entityType: "ReviewReport",
+    entityId: reportId,
+    metadata: { reviewId: report.reviewId, resolution: resolution ?? null },
+  });
+
+  return updated;
 }

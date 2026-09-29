@@ -70,17 +70,18 @@ function escapeHtml(text: string): string {
 }
 
 export async function listNotifications(userId: string, page = 1, pageSize = 20) {
+  const size = Math.min(Math.max(pageSize, 1), 50);
   const [items, total, unreadCount] = await Promise.all([
     prisma.notification.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
+      skip: (page - 1) * size,
+      take: size,
     }),
     prisma.notification.count({ where: { userId } }),
     prisma.notification.count({ where: { userId, read: false } }),
   ]);
-  return { items, total, unreadCount };
+  return { items, total, unreadCount, page, pageSize: size, totalPages: Math.max(1, Math.ceil(total / size)) };
 }
 
 export async function markNotificationRead(userId: string, notificationId: string) {
@@ -92,4 +93,8 @@ export async function markNotificationRead(userId: string, notificationId: strin
 
 export async function markAllNotificationsRead(userId: string) {
   await prisma.notification.updateMany({ where: { userId, read: false }, data: { read: true } });
+}
+
+export async function unreadNotificationCount(userId: string): Promise<number> {
+  return prisma.notification.count({ where: { userId, read: false } });
 }

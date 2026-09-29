@@ -53,7 +53,11 @@ export async function upsertRoommateProfile(userId: string, input: RoommateProfi
   });
 
   if (input.gender !== undefined) {
-    await prisma.profile.update({ where: { userId }, data: { gender: input.gender ?? null } });
+    await prisma.profile.upsert({
+      where: { userId },
+      create: { userId, gender: input.gender ?? null },
+      update: { gender: input.gender ?? null },
+    });
   }
 
   return profile;

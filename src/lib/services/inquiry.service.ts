@@ -90,12 +90,13 @@ export async function respondToInquiry(
 
 export async function listInquiriesForOwner(ownerId: string, status?: string, page = 1, pageSize = 20) {
   const where = { ownerId, ...(status ? { status: status as never } : {}) };
+  const size = Math.min(Math.max(pageSize, 1), 50);
   const [items, total] = await Promise.all([
     prisma.inquiry.findMany({
       where,
       orderBy: { createdAt: "desc" },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
+      skip: (page - 1) * size,
+      take: size,
       include: {
         property: { select: { id: true, slug: true, title: true } },
         student: { select: { id: true, name: true, profile: { select: { avatarUrl: true } } } },
@@ -103,17 +104,18 @@ export async function listInquiriesForOwner(ownerId: string, status?: string, pa
     }),
     prisma.inquiry.count({ where }),
   ]);
-  return { items, total, page, pageSize };
+  return { items, total, page, pageSize: size, totalPages: Math.max(1, Math.ceil(total / size)) };
 }
 
 export async function listInquiriesForStudent(studentId: string, page = 1, pageSize = 20) {
   const where = { studentId };
+  const size = Math.min(Math.max(pageSize, 1), 50);
   const [items, total] = await Promise.all([
     prisma.inquiry.findMany({
       where,
       orderBy: { createdAt: "desc" },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
+      skip: (page - 1) * size,
+      take: size,
       include: {
         property: {
           select: {
@@ -125,5 +127,5 @@ export async function listInquiriesForStudent(studentId: string, page = 1, pageS
     }),
     prisma.inquiry.count({ where }),
   ]);
-  return { items, total, page, pageSize };
+  return { items, total, page, pageSize: size, totalPages: Math.max(1, Math.ceil(total / size)) };
 }

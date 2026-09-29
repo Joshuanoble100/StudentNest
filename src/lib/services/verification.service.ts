@@ -180,7 +180,7 @@ export async function decidePropertyVerification(
 /** Landlord/agent submits identity or ownership verification. */
 export async function submitVerificationRequest(
   userId: string,
-  input: { type: "IDENTITY" | "OWNERSHIP" | "AGENCY_LICENSE"; submittedData?: Prisma.InputJsonValue; documentUrls?: string[] },
+  input: { type: "IDENTITY" | "OWNERSHIP" | "AGENCY_LICENSE"; submittedData?: Record<string, unknown>; documentUrls?: string[] },
 ) {
   const pending = await prisma.verificationRequest.findFirst({
     where: { userId, status: "PENDING" },
@@ -192,7 +192,7 @@ export async function submitVerificationRequest(
     data: {
       userId,
       type: input.type,
-      submittedData: input.submittedData ?? undefined,
+      submittedData: (input.submittedData ?? undefined) as Prisma.InputJsonValue | undefined,
       documentUrls: input.documentUrls ?? [],
     },
   });
@@ -240,6 +240,30 @@ export async function decideAccountVerification(
     entityId: requestId,
     metadata: { type: request.type, rejectionReason: rejectionReason ?? null },
   });
+}
+
+/**
+ * The requesting user's own verification history.
+ * Document URLs are returned only to their owner — admins get them through a
+ * separate, audited path. Nobody else ever sees them.
+ */
+export async function listMyVerificationRequests(userId: string) {
+  const requests = await prisma.verificationRequest.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      type: true,
+      status: true,
+      createdAt: true,
+      reviewedAt: true,
+      rejectionReason: true,
+      documentUrls: true,
+      submittedData: true,
+      reviewedBy: { select: { name: true } },
+    },
+  });
+  return { requests, isVerified: await isUserVerified(userId) };
 }
 
 /** Whether a landlord/agent user has an approved identity verification. */

@@ -44,6 +44,7 @@ export const changePasswordSchema = z.object({
   currentPassword: z.string().min(1).max(128),
   newPassword: passwordSchema,
 });
+export type PasswordChangeInput = z.infer<typeof changePasswordSchema>;
 
 export const notificationPreferenceSchema = z.object({
   emailEnabled: z.boolean().optional(),
@@ -54,3 +55,4 @@ export const notificationPreferenceSchema = z.object({
   marketingEmails: z.boolean().optional(),
   pushEnabled: z.boolean().optional(),
 });
+export type NotificationPreferenceInput = z.infer<typeof notificationPreferenceSchema>;

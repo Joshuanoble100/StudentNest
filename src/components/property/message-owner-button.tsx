@@ -52,7 +52,7 @@ export function MessageOwnerButton({
         toast.error(json?.error?.message ?? "Could not start conversation");
         return;
       }
-      router.push(`/dashboard/messages/${json.data.id}`);
+      router.push(`/messages/${json.data.id}`);
     } catch {
       toast.error("Network error. Please try again.");
     } finally {

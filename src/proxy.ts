@@ -12,7 +12,13 @@ export default auth((req) => {
   const path = nextUrl.pathname;
 
   const isAuthPage = path === "/login" || path === "/register" || path === "/forgot-password" || path === "/reset-password";
-  const isProtected = path.startsWith("/dashboard") || path.startsWith("/admin");
+  const isProtected =
+    path.startsWith("/dashboard") ||
+    path.startsWith("/admin") ||
+    path.startsWith("/messages") ||
+    path.startsWith("/notifications") ||
+    path === "/account" ||
+    path.startsWith("/account/");
 
   if (isProtected && !session?.user) {
     const loginUrl = new URL("/login", nextUrl.origin);
@@ -38,6 +44,10 @@ export const config = {
   matcher: [
     "/dashboard/:path*",
     "/admin/:path*",
+    "/messages/:path*",
+    "/notifications",
+    "/account",
+    "/account/:path*",
     "/login",
     "/register",
     "/forgot-password",

@@ -5,6 +5,17 @@ import type {
   ReviewCategory,
   ReportReason,
   InquiryType,
+  Role,
+  UserStatus,
+  InquiryStatus,
+  ReportStatus,
+  ReportTargetType,
+  NotificationType,
+  Gender,
+  RoommateStatus,
+  PaymentStatus,
+  PaymentPurpose,
+  VerificationType,
 } from "@/lib/types";
 
 export const SITE_NAME = "StudentNest";
@@ -17,6 +28,10 @@ export const SAFETY_WARNING =
 
 export const VERIFICATION_EXPLAINER =
   "Verified means our team confirmed the listing details with the owner/caretaker and checked supporting evidence. Verification does not guarantee quality, ownership, or absence of scams — always inspect before paying.";
+
+/** Featured is a paid placement — it must never be presented as a quality signal. */
+export const FEATURED_EXPLAINER =
+  "Featured is a paid placement bought by the owner to appear higher in results. It is not a review score, not a verification, and not a recommendation from StudentNest.";
 
 export const PROPERTY_TYPE_LABELS: Record<PropertyType, string> = {
   SELF_CONTAIN: "Self-contain",
@@ -225,3 +240,102 @@ export const NIGERIAN_STATES = [
   "Nasarawa","Niger","Ogun","Ondo","Osun","Oyo","Plateau","Rivers","Sokoto",
   "Taraba","Yobe","Zamfara",
 ] as const;
+
+// -- Statuses & enums used by dashboards and the admin panel -----------------
+
+export const ROLE_LABELS: Record<Role, string> = {
+  STUDENT: "Student",
+  LANDLORD: "Landlord",
+  AGENT: "Caretaker / Agent",
+  ADMIN: "Admin",
+};
+
+export const USER_STATUS_LABELS: Record<UserStatus, string> = {
+  ACTIVE: "Active",
+  SUSPENDED: "Suspended",
+  DELETED: "Deleted",
+};
+
+export const INQUIRY_STATUS_LABELS: Record<InquiryStatus, string> = {
+  NEW: "New",
+  RESPONDED: "Responded",
+  VIEWING_SCHEDULED: "Viewing scheduled",
+  CLOSED: "Closed",
+};
+
+export const REPORT_STATUS_LABELS: Record<ReportStatus, string> = {
+  OPEN: "Open",
+  UNDER_REVIEW: "Under review",
+  RESOLVED: "Resolved",
+  DISMISSED: "Dismissed",
+};
+
+export const REPORT_TARGET_LABELS: Record<ReportTargetType, string> = {
+  PROPERTY: "Property",
+  REVIEW: "Review",
+  USER: "User",
+  MESSAGE: "Message",
+  CONVERSATION: "Conversation",
+};
+
+export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
+  INQUIRY_NEW: "New inquiry",
+  INQUIRY_RESPONSE: "Inquiry response",
+  MESSAGE_NEW: "New message",
+  ROOMMATE_MATCH: "Roommate match",
+  FAVORITE_PRICE_CHANGE: "Price change",
+  FAVORITE_AVAILABLE: "Now available",
+  NEW_MATCHING_PROPERTY: "New matching listing",
+  REVIEW_RESPONSE: "Review response",
+  REVIEW_RECEIVED: "Review received",
+  LISTING_APPROVED: "Listing approved",
+  LISTING_REJECTED: "Listing rejected",
+  VERIFICATION_STATUS: "Verification update",
+  SUSPICIOUS_ACTIVITY: "Suspicious activity",
+  ACCOUNT_ALERT: "Account alert",
+};
+
+export const GENDER_LABELS: Record<Gender, string> = {
+  MALE: "Male",
+  FEMALE: "Female",
+  OTHER: "Other",
+  PREFER_NOT_TO_SAY: "Prefer not to say",
+};
+
+export const ROOMMATE_STATUS_LABELS: Record<RoommateStatus, string> = {
+  ACTIVE: "Active — visible to other students",
+  PAUSED: "Paused — hidden while you look",
+  HIDDEN: "Hidden",
+};
+
+export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
+  PENDING: "Pending",
+  SUCCESS: "Paid",
+  FAILED: "Failed",
+  REFUNDED: "Refunded",
+};
+
+export const PAYMENT_PURPOSE_LABELS: Record<PaymentPurpose, string> = {
+  FEATURED_LISTING: "Featured listing",
+  VERIFIED_LANDLORD_SERVICE: "Verified landlord service",
+  LISTING_PROMOTION: "Listing promotion",
+  PREMIUM_TOOLS: "Premium tools",
+};
+
+export const VERIFICATION_TYPE_LABELS: Record<VerificationType, string> = {
+  IDENTITY: "Identity",
+  OWNERSHIP: "Property ownership",
+  AGENCY_LICENSE: "Agency licence",
+};
+
+export const STUDENT_LEVELS = ["100", "200", "300", "400", "500", "600", "Postgraduate"] as const;
+
+/** Selectable option lists derived from the label maps above. */
+export const propertyTypeOptions = Object.entries(PROPERTY_TYPE_LABELS).map(([value, label]) => ({
+  value,
+  label,
+}));
+export const amenityOptions = Object.entries(AMENITY_LABELS).map(([value, label]) => ({
+  value,
+  label,
+}));

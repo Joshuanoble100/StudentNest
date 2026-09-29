@@ -3,6 +3,7 @@ import { slugify, distanceKm } from "@/lib/utils";
 import type { PropertyCreateInput, PropertyUpdateInput } from "@/lib/validation/property";
 import { auditLog } from "./audit.service";
 import { createNotification } from "./notification.service";
+import { propertyCardSelect } from "./search.service";
 
 export class PropertyNotFoundError extends Error {
   status = 404;
@@ -319,6 +320,88 @@ export async function getPropertyBySlug(
   };
 }
 
+/** Listings owned by a landlord/agent, including non-public ones. */
+export async function listOwnerProperties(ownerId: string, status?: string) {
+  const where = {
+    ownerId,
+    deletedAt: null,
+    ...(status ? { status: status as never } : {}),
+  };
+  return prisma.property.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+      status: true,
+      verificationStatus: true,
+      rentAmount: true,
+      rentPeriod: true,
+      areaName: true,
+      city: true,
+      propertyType: true,
+      bedrooms: true,
+      availableNow: true,
+      viewCount: true,
+      favoriteCount: true,
+      inquiryCount: true,
+      avgRating: true,
+      reviewCount: true,
+      isFeatured: true,
+      createdAt: true,
+      updatedAt: true,
+      images: { where: { isCover: true }, take: 1, select: { url: true, thumbUrl: true, alt: true } },
+      university: { select: { name: true, shortName: true, slug: true } },
+      campus: { select: { name: true, slug: true } },
+      verifications: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { status: true, rejectionReason: true, reviewedAt: true },
+      },
+    },
+  });
+}
+
+/**
+ * Full editable record for one of the owner's own listings.
+ * Admins may read any listing; anyone else gets a 404 rather than a 403 so we
+ * never confirm that a private listing exists.
+ */
+export async function getOwnerProperty(
+  actor: { id: string; role: string },
+  propertyId: string,
+) {
+  const property = await prisma.property.findUnique({
+    where: { id: propertyId },
+    include: {
+      images: { orderBy: { sortOrder: "asc" } },
+      amenities: { orderBy: { key: "asc" } },
+      features: true,
+      condition: true,
+      university: { select: { id: true, name: true, slug: true } },
+      campus: { select: { id: true, name: true, slug: true } },
+      neighborhood: { select: { id: true, name: true, slug: true } },
+      verifications: { orderBy: { createdAt: "desc" } },
+    },
+  });
+  if (!property || property.deletedAt) throw new PropertyNotFoundError(propertyId);
+  if (property.ownerId !== actor.id && actor.role !== "ADMIN") {
+    throw new PropertyNotFoundError(propertyId);
+  }
+  return property;
+}
+
+/** Per-status counts for the landlord overview. */
+export async function ownerListingSummary(ownerId: string) {
+  const rows = await prisma.property.groupBy({
+    by: ["status"],
+    where: { ownerId, deletedAt: null },
+    _count: { _all: true },
+  });
+  return rows.map((row) => ({ status: row.status, count: row._count._all }));
+}
+
 export async function toggleFavorite(userId: string, propertyId: string) {
   const property = await prisma.property.findUnique({
     where: { id: propertyId },
@@ -350,20 +433,28 @@ export async function toggleFavorite(userId: string, propertyId: string) {
   return { favorited: true };
 }
 
+/**
+ * Saved properties in the shape the shared PropertyCard expects, plus the rent
+ * at save time so a price change can be shown honestly rather than implied.
+ */
 export async function listFavoriteProperties(userId: string) {
-  return prisma.favoriteProperty.findMany({
+  const rows = await prisma.favoriteProperty.findMany({
     where: { userId, property: { deletedAt: null } },
     orderBy: { createdAt: "desc" },
-    include: {
-      property: {
-        include: {
-          images: { where: { isCover: true }, take: 1 },
-          university: { select: { shortName: true, name: true } },
-          campus: { select: { name: true } },
-        },
-      },
+    select: {
+      id: true,
+      createdAt: true,
+      savedRentAmount: true,
+      property: { select: propertyCardSelect },
     },
   });
+  return rows.map((row) => ({
+    favoriteId: row.id,
+    savedAt: row.createdAt,
+    savedRentAmount: row.savedRentAmount,
+    priceChanged: row.property.rentAmount !== row.savedRentAmount,
+    property: row.property,
+  }));
 }
 
 /**

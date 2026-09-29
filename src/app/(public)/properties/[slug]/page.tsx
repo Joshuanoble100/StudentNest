@@ -46,6 +46,7 @@ import { StarRating } from "@/components/ui/star-rating";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   AMENITY_LABELS,
+  FEATURED_EXPLAINER,
   FLOOD_RISK_LABELS,
   FURNISHING_LABELS,
   INTERNET_TYPE_LABELS,
@@ -302,8 +303,8 @@ export default async function PropertyDetailPage({
                 </Badge>
               )}
               {property.isFeatured && (
-                <Badge variant="accent">
-                  <Sparkles className="h-3 w-3" aria-hidden /> Featured
+                <Badge variant="accent" title={FEATURED_EXPLAINER}>
+                  <Sparkles className="h-3 w-3" aria-hidden /> Featured · paid placement
                 </Badge>
               )}
               {!property.availableNow && <Badge variant="pending">Not available now</Badge>}

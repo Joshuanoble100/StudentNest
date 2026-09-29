@@ -159,7 +159,7 @@ export async function listUsers(
     }),
     prisma.user.count({ where }),
   ]);
-  return { items, total, page, pageSize };
+  return { items, total, page, pageSize, totalPages: Math.max(1, Math.ceil(total / pageSize)) };
 }
 
 // -- Universities / campuses / neighborhoods management -------------------
@@ -228,5 +228,5 @@ export async function listAuditLogs(page = 1, pageSize = 30, action?: string) {
     }),
     prisma.auditLog.count({ where }),
   ]);
-  return { items, total, page, pageSize };
+  return { items, total, page, pageSize, totalPages: Math.max(1, Math.ceil(total / pageSize)) };
 }

@@ -43,7 +43,6 @@ export const env = {
   payments: {
     provider: (optional("PAYMENT_PROVIDER") ?? "mock") as "mock" | "paystack",
     paystackSecretKey: optional("PAYSTACK_SECRET_KEY"),
-    paystackPublicKey: optional("PAYSTACK_PUBLIC_KEY"),
   },
 
   rateLimit: {

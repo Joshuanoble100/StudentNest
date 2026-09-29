@@ -24,6 +24,17 @@ export interface InitializeChargeInput {
   metadata?: Prisma.InputJsonValue;
 }
 
+export class PaymentError extends Error {
+  status: number;
+  constructor(message: string, status = 400) {
+    super(message);
+    this.status = status;
+  }
+}
+
+/** Purposes that only make sense attached to one of the payer's own listings. */
+const LISTING_BOUND_PURPOSES: PaymentPurpose[] = ["FEATURED_LISTING", "LISTING_PROMOTION"];
+
 export interface InitializeChargeResult {
   reference: string;
   authorizationUrl: string | null; // null in mock mode
@@ -155,11 +166,11 @@ export async function handleChargeSuccess(payload: {
 
 /** DEVELOPMENT ONLY: completes a mock payment. Disabled in production. */
 export async function completeMockPayment(userId: string, reference: string) {
-  if (env.isProduction) throw new Error("Mock payments are disabled in production");
+  if (env.isProduction) throw new PaymentError("Mock payments are disabled in production", 403);
   const payment = await prisma.payment.findFirst({
     where: { reference, userId, provider: "MOCK", status: "PENDING" },
   });
-  if (!payment) throw new Error("Pending mock payment not found");
+  if (!payment) throw new PaymentError("Pending mock payment not found", 404);
 
   await prisma.payment.update({ where: { id: payment.id }, data: { status: "SUCCESS" } });
   if (payment.purpose === "FEATURED_LISTING" && payment.propertyId) {
@@ -178,3 +189,63 @@ export const FEATURE_PRICES: Record<PaymentPurpose, number> = {
   VERIFIED_LANDLORD_SERVICE: 1_000_000, // ₦10,000
   PREMIUM_TOOLS: 300_000, // ₦3,000 / month
 };
+
+/**
+ * Starts a charge for an optional landlord extra.
+ *
+ * The price always comes from FEATURE_PRICES — never from the request body —
+ * so a client cannot name its own amount. Listing-bound purposes require a
+ * listing the caller actually owns; a non-owner gets a 404 rather than a 403
+ * so private listings cannot be enumerated through this endpoint.
+ */
+export async function startCheckout(
+  actor: { id: string; role: string },
+  input: { purpose: PaymentPurpose; propertyId?: string },
+) {
+  let propertyId: string | undefined;
+
+  if (LISTING_BOUND_PURPOSES.includes(input.purpose)) {
+    if (!input.propertyId) throw new PaymentError("Choose which listing this applies to");
+    const property = await prisma.property.findUnique({
+      where: { id: input.propertyId },
+      select: { id: true, ownerId: true, title: true, status: true, deletedAt: true, isFeatured: true, featuredUntil: true },
+    });
+    if (!property || property.deletedAt || (property.ownerId !== actor.id && actor.role !== "ADMIN")) {
+      throw new PaymentError("Listing not found", 404);
+    }
+    if (property.status !== "ACTIVE") {
+      throw new PaymentError("Only a live listing can be featured or promoted");
+    }
+    if (property.isFeatured && property.featuredUntil && property.featuredUntil > new Date()) {
+      throw new PaymentError(
+        `"${property.title}" is already featured until ${property.featuredUntil.toISOString().slice(0, 10)}`,
+      );
+    }
+    propertyId = property.id;
+  }
+
+  return initializeCharge({
+    userId: actor.id,
+    purpose: input.purpose,
+    amountKobo: FEATURE_PRICES[input.purpose],
+    propertyId,
+    metadata: { requestedBy: actor.id },
+  });
+}
+
+export async function listMyPayments(userId: string, page = 1, pageSize = 20) {
+  const size = Math.min(Math.max(pageSize, 1), 50);
+  const current = Math.max(page, 1);
+  const where = { userId };
+  const [items, total] = await Promise.all([
+    prisma.payment.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: (current - 1) * size,
+      take: size,
+      include: { property: { select: { id: true, title: true, slug: true } } },
+    }),
+    prisma.payment.count({ where }),
+  ]);
+  return { items, total, page: current, pageSize: size, totalPages: Math.max(1, Math.ceil(total / size)) };
+}
