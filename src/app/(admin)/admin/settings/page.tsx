@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireRolePage } from "@/lib/auth-helpers";
-import { env, isProviderConfigured } from "@/lib/env";
+import { env, isProviderConfigured, isProviderLive } from "@/lib/env";
 import { PageHeader } from "@/components/account/page-header";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,10 @@ export const metadata: Metadata = { title: "Admin · Settings", robots: { index:
 type Integration = {
   name: string;
   provider: string;
-  configured: boolean;
+  /** A real external provider is selected and holds its credentials. */
+  live: boolean;
+  /** The selected provider was asked for but its credentials are absent. */
+  missingCredentials: boolean;
   fallback: string;
   variables: string[];
   impact: string;
@@ -27,7 +30,8 @@ export default async function AdminSettingsPage() {
     {
       name: "Image storage",
       provider: env.storage.provider,
-      configured: isProviderConfigured("storage"),
+      live: isProviderLive("storage"),
+      missingCredentials: !isProviderConfigured("storage"),
       fallback: "Local disk (public/uploads and .data/uploads on the server)",
       variables:
         env.storage.provider === "supabase"
@@ -41,7 +45,8 @@ export default async function AdminSettingsPage() {
     {
       name: "Email",
       provider: env.email.provider,
-      configured: isProviderConfigured("email"),
+      live: isProviderLive("email"),
+      missingCredentials: !isProviderConfigured("email"),
       fallback: "Mock — emails are logged to the server console and never sent",
       variables: env.email.provider === "resend" ? ["RESEND_API_KEY", "EMAIL_FROM"] : [],
       impact:
@@ -50,7 +55,8 @@ export default async function AdminSettingsPage() {
     {
       name: "Maps",
       provider: env.maps.provider,
-      configured: isProviderConfigured("maps"),
+      live: isProviderLive("maps"),
+      missingCredentials: !isProviderConfigured("maps"),
       fallback: "Static placeholder with an approximate-location notice",
       variables: env.maps.provider === "mapbox" ? ["NEXT_PUBLIC_MAPBOX_TOKEN"] : [],
       impact:
@@ -59,7 +65,8 @@ export default async function AdminSettingsPage() {
     {
       name: "Payments",
       provider: env.payments.provider,
-      configured: isProviderConfigured("payments"),
+      live: isProviderLive("payments"),
+      missingCredentials: !isProviderConfigured("payments"),
       fallback: "Mock — charges complete instantly and are marked as mock in the database",
       variables: env.payments.provider === "paystack" ? ["PAYSTACK_SECRET_KEY"] : [],
       impact:
@@ -67,7 +74,8 @@ export default async function AdminSettingsPage() {
     },
   ];
 
-  const allConfigured = integrations.every((i) => i.configured);
+  const allLive = integrations.every((i) => i.live);
+  const broken = integrations.filter((i) => i.missingCredentials);
 
   return (
     <div className="space-y-6">
@@ -76,11 +84,24 @@ export default async function AdminSettingsPage() {
         description="Live configuration for this deployment. Values come from environment variables — nothing here is editable through the admin panel, and no secret is ever displayed."
       />
 
-      <Alert variant={allConfigured && env.isProduction ? "success" : "warning"}>
+      {broken.length > 0 && (
+        <Alert variant="danger">
+          <AlertTitle>
+            {broken.map((i) => i.name).join(", ")} selected but missing credentials
+          </AlertTitle>
+          <p className="text-sm">
+            The provider is named in the environment but its keys are absent, so the code silently
+            falls back to the mock. Set the variables listed on the card below, or change the
+            provider back to the mock so the configuration says what it means.
+          </p>
+        </Alert>
+      )}
+
+      <Alert variant={allLive ? "success" : "warning"}>
         <AlertTitle>
-          {allConfigured
-            ? "All integrations are configured"
-            : "Some integrations are running on mock providers"}
+          {allLive
+            ? "All integrations are running on real providers"
+            : `${integrations.filter((i) => !i.live).length} of ${integrations.length} integrations are running on mock or local fallbacks`}
         </AlertTitle>
         <p className="text-sm">
           Mock providers keep the app runnable with no credentials at all, but they do not send
@@ -98,15 +119,15 @@ export default async function AdminSettingsPage() {
             <CardHeader>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <CardTitle className="text-base">{integration.name}</CardTitle>
-                <Badge variant={integration.configured ? "verified" : "pending"}>
+                <Badge variant={integration.live ? "verified" : "pending"}>
                   {integration.provider}
-                  {integration.configured ? " · configured" : " · mock fallback"}
+                  {integration.live ? " · live" : " · mock fallback"}
                 </Badge>
               </div>
               <CardDescription>{integration.impact}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
-              {!integration.configured && (
+              {!integration.live && (
                 <p className="text-slate-600">
                   <span className="font-medium">Falling back to:</span> {integration.fallback}
                 </p>
@@ -188,7 +209,7 @@ export default async function AdminSettingsPage() {
           </p>
           <p>
             For a production deployment, move <code className="text-xs">assertRateLimit</code> in{" "}
-            <code className="text-xs">src/lib/rate-limit.ts</code> onto a shared store (Upstash
+            <code className="text-xs">src/lib/services/rate-limit.service.ts</code> onto a shared store (Upstash
             Redis or similar) before treating it as a security control.
           </p>
         </CardContent>

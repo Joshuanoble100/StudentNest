@@ -78,7 +78,7 @@ export default async function AdminUsersPage({
 
       <Alert variant="warning">
         <AlertTitle>Act on evidence, not on a single report</AlertTitle>
-        Suspending an account removes their listings from every student's search. Check the
+        Suspending an account removes their listings from every student&rsquo;s search. Check the
         linked reports and audit history first, and always record a reason — the affected person
         receives it verbatim.
       </Alert>

@@ -12,6 +12,10 @@
 
 # testing
 /coverage
+/test-results
+/playwright-report
+/blob-report
+/playwright/.cache
 
 # next.js
 /.next/
@@ -30,14 +34,18 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files — .env.example is documentation, not a secret, so it stays tracked
 .env*
+!.env.example
 
 # vercel
 .vercel
 
 # locally generated uploads + seed images
 /public/uploads
+
+# private uploads (verification documents) — never served from public/
+/.data/
 
 # typescript
 *.tsbuildinfo

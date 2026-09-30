@@ -69,3 +69,25 @@ export function isProviderConfigured(provider: "storage" | "maps" | "email" | "p
       return env.payments.provider === "paystack" ? Boolean(env.payments.paystackSecretKey) : true;
   }
 }
+
+/**
+ * True only when a real external provider is selected *and* holds its credentials.
+ *
+ * `isProviderConfigured` answers a narrower question — "is the chosen provider
+ * usable?" — which is trivially yes for the mock/local fallbacks. Anything that
+ * tells a human whether email, maps, payments or durable file storage actually
+ * work must use this instead, or it will report a mock as configured.
+ */
+export function isProviderLive(provider: "storage" | "maps" | "email" | "payments"): boolean {
+  if (!isProviderConfigured(provider)) return false;
+  switch (provider) {
+    case "storage":
+      return env.storage.provider !== "local";
+    case "maps":
+      return env.maps.provider !== "mock";
+    case "email":
+      return env.email.provider !== "mock";
+    case "payments":
+      return env.payments.provider !== "mock";
+  }
+}

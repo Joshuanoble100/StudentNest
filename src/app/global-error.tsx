@@ -69,6 +69,9 @@ export default function GlobalError({
             >
               Try again
             </button>
+            {/* A real <a>, not <Link>: this boundary renders when the client bundle itself has
+                failed, so navigation must not depend on the code that just crashed. */}
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
             <a
               href="/"
               style={{

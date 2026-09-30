@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireRolePage } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
-import { isProviderConfigured } from "@/lib/env";
+import { isProviderLive } from "@/lib/env";
 import { FEATURE_PRICES, listMyPayments } from "@/lib/services/payments.service";
 import { PageHeader } from "@/components/account/page-header";
 import { PromoteListing, type PurchasePurpose } from "@/components/payments/promote-listing";
@@ -102,10 +102,10 @@ export default async function LandlordBillingPage({
         </Alert>
       )}
 
-      {!isProviderConfigured("payments") && (
+      {!isProviderLive("payments") && (
         <Alert variant="info">
           <AlertTitle>Payments are running in mock mode</AlertTitle>
-          No Paystack key is configured, so charges are simulated and recorded with{" "}
+          No live Paystack key is configured, so charges are simulated and recorded with{" "}
           <code className="text-xs">provider = MOCK</code>. Set{" "}
           <code className="text-xs">PAYMENT_PROVIDER=paystack</code> and{" "}
           <code className="text-xs">PAYSTACK_SECRET_KEY</code> to take real money.
@@ -132,7 +132,7 @@ export default async function LandlordBillingPage({
               prices={FEATURE_PRICES as Record<PurchasePurpose, number>}
               labels={PURPOSE_LABELS}
               descriptions={PURPOSE_DESCRIPTIONS}
-              mockMode={!isProviderConfigured("payments")}
+              mockMode={!isProviderLive("payments")}
             />
           </CardContent>
         </Card>

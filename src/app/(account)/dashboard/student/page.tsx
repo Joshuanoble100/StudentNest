@@ -19,7 +19,7 @@ import { StatCard } from "@/components/account/stat-card";
 import { PropertyCard } from "@/components/property/property-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { INQUIRY_STATUS_LABELS } from "@/lib/constants";
 import { formatDate, timeAgo } from "@/lib/utils";

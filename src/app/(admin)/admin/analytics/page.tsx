@@ -18,6 +18,18 @@ export const metadata: Metadata = { title: "Admin · Analytics", robots: { index
 
 const DAYS = 30;
 
+/**
+ * Both reads of the current time live here rather than in the render body so
+ * every figure on the page is measured against one instant, not several.
+ */
+function windowStart(days: number): Date {
+  return new Date(Date.now() - days * 86_400_000);
+}
+
+function wholeDaysSince(moment: Date): number {
+  return Math.max(0, Math.floor((Date.now() - moment.getTime()) / 86_400_000));
+}
+
 /** Saved-search filters are the only demand signal we store — summarise them honestly. */
 function summarizeSavedSearches(rows: { query: unknown }[]) {
   const cities = new Map<string, number>();
@@ -122,7 +134,7 @@ function RankedList({
 
 export default async function AdminAnalyticsPage() {
   await requireRolePage("ADMIN");
-  const since = new Date(Date.now() - DAYS * 86_400_000);
+  const since = windowStart(DAYS);
 
   const [
     registrations,
@@ -202,7 +214,7 @@ export default async function AdminAnalyticsPage() {
   const successfulPayments = payments.filter((p) => p.status === "SUCCESS");
   const revenueKobo = successfulPayments.reduce((sum, p) => sum + (p._sum.amountKobo ?? 0), 0);
   const pendingVerificationDays = oldestPendingVerification
-    ? Math.max(0, Math.floor((Date.now() - oldestPendingVerification.createdAt.getTime()) / 86_400_000))
+    ? wholeDaysSince(oldestPendingVerification.createdAt)
     : 0;
 
   return (
