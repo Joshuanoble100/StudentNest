@@ -5,13 +5,25 @@ const PASSWORD = process.env.E2E_PASSWORD ?? "Student!2345";
 const OWNER_EMAIL = process.env.E2E_OWNER_EMAIL ?? "emeka.owner@studentnest.test";
 const OWNER_PASSWORD = process.env.E2E_OWNER_PASSWORD ?? "Owner!2345";
 
-async function signIn(page: import("@playwright/test").Page, email: string, password: string) {
-  await page.goto("/login");
+/**
+ * The dev server compiles each route on first hit, so the credential POST can
+ * take a while to come back. Every wait here is pathname-based: a regex on the
+ * full URL also matches the `callbackUrl` query on /login, which would let a
+ * failed sign-in pass for a successful one.
+ */
+const AUTH_TIMEOUT = 60_000;
+
+async function signIn(
+  page: import("@playwright/test").Page,
+  email: string,
+  password: string,
+  landingPath: string,
+) {
+  await page.goto(`/login?callbackUrl=${encodeURIComponent(landingPath)}`);
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: /log in/i }).click();
-  // Wait for the credential POST to land — navigating early aborts it mid-flight.
-  await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 20_000 });
+  await page.waitForURL((url) => url.pathname.startsWith(landingPath), { timeout: AUTH_TIMEOUT });
 }
 
 /**
@@ -85,23 +97,16 @@ test.describe("authentication and role enforcement", () => {
   });
 
   test("a student can log in and reach their dashboard", async ({ page }) => {
-    await page.goto("/login?callbackUrl=/dashboard/student");
-    await page.getByLabel("Email").fill(EMAIL);
-    await page.getByLabel("Password").fill(PASSWORD);
-    await page.getByRole("button", { name: /log in/i }).click();
-    await expect(page).toHaveURL(/\/dashboard\/student/, { timeout: 20_000 });
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await signIn(page, EMAIL, PASSWORD, "/dashboard/student");
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible({ timeout: AUTH_TIMEOUT });
   });
 
   test("a logged-in student is still refused the admin area", async ({ page }) => {
-    await page.goto("/login?callbackUrl=/dashboard/student");
-    await page.getByLabel("Email").fill(EMAIL);
-    await page.getByLabel("Password").fill(PASSWORD);
-    await page.getByRole("button", { name: /log in/i }).click();
-    await expect(page).toHaveURL(/\/dashboard\/student/, { timeout: 20_000 });
-
+    await signIn(page, EMAIL, PASSWORD, "/dashboard/student");
     await page.goto("/admin");
-    await expect(page).toHaveURL(/\/forbidden|\/login/);
+    await page.waitForURL((url) => ["/forbidden", "/login"].includes(url.pathname), {
+      timeout: AUTH_TIMEOUT,
+    });
   });
 
   test("bad credentials are rejected without revealing which field was wrong", async ({ page }) => {
@@ -109,16 +114,20 @@ test.describe("authentication and role enforcement", () => {
     await page.getByLabel("Email").fill(EMAIL);
     await page.getByLabel("Password").fill("not-the-password");
     await page.getByRole("button", { name: /log in/i }).click();
-    await expect(page).toHaveURL(/\/login/);
-    await expect(page.getByText(/invalid|incorrect|wrong/i).first()).toBeVisible();
+    await expect(page.getByText(/invalid|incorrect|wrong/i).first()).toBeVisible({
+      timeout: AUTH_TIMEOUT,
+    });
+    expect(new URL(page.url()).pathname).toBe("/login");
   });
 });
 
 test.describe("landlord billing", () => {
   test("a landlord can open billing and sees what money cannot buy", async ({ page }) => {
-    await signIn(page, OWNER_EMAIL, OWNER_PASSWORD);
+    await signIn(page, OWNER_EMAIL, OWNER_PASSWORD, "/dashboard/landlord");
     await page.goto("/dashboard/landlord/billing");
-    await expect(page.getByRole("heading", { level: 1, name: "Billing" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Billing" })).toBeVisible({
+      timeout: AUTH_TIMEOUT,
+    });
     // The paid extras exist, but so does the explicit list of what is never for sale.
     await expect(page.getByText("Buy an extra")).toBeVisible();
     await expect(page.getByText("What you cannot buy")).toBeVisible();
@@ -126,8 +135,11 @@ test.describe("landlord billing", () => {
   });
 
   test("a student cannot open landlord billing", async ({ page }) => {
-    await signIn(page, EMAIL, PASSWORD);
+    await signIn(page, EMAIL, PASSWORD, "/dashboard/student");
     await page.goto("/dashboard/landlord/billing");
-    await expect(page).toHaveURL(/\/forbidden|\/dashboard\/student/);
+    await page.waitForURL(
+      (url) => url.pathname === "/forbidden" || url.pathname.startsWith("/dashboard/student"),
+      { timeout: AUTH_TIMEOUT },
+    );
   });
 });

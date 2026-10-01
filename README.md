@@ -24,7 +24,7 @@ These are product constraints, not aspirations. They are enforced in code and co
 
 ## Quick start
 
-Requires Node 20.19+ (developed on Node 24) and a PostgreSQL 14+ instance.
+Requires Node >= 20.9 (Next.js 16 requirement; developed on Node 24) and a PostgreSQL 14+ instance.
 
 ```bash
 npm install
@@ -54,10 +54,11 @@ Created by `npm run db:seed`. All addresses use the reserved `.test` TLD, so no 
 | Student | `chi.student@studentnest.test` | `Student!2345` |
 | Student | `tolu.student@studentnest.test` | `Student!2345` |
 | Landlord | `emeka.owner@studentnest.test` | `Owner!2345` |
-| Landlord | `segun.landlord@studentnest.test` | `Owner!2345` |
-| Agent | `funke.agent@studentnest.test` | `Owner!2345` |
+| Landlord | `funke.owner@studentnest.test` | `Owner!2345` |
+| Agent / caretaker | `blessing.caretaker@studentnest.test` | `Owner!2345` |
+| Agent | `segun.agent@studentnest.test` | `Owner!2345` |
 
-The seeder prints the full list when it runs. Override the admin account with `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`.
+There are 18 accounts in total (1 admin, 5 landlords, 2 agents, 10 students) plus 18 listings, 25 reviews and 9 roommate profiles. The seeder prints the full list when it runs. Override the admin account with `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`.
 
 ---
 
@@ -265,4 +266,4 @@ Core student functionality — search, filters, property details, reviews, roomm
 - The rate limiter is in-memory (see above).
 - Saved searches are the only stored demand signal, so `/admin/analytics` understates total search volume. The page says so rather than implying completeness.
 - Map view depends on `MAP_PROVIDER`; the mock renders a placeholder.
-- Review eligibility is based on recorded engagement (inquiries, conversations, stays), not on proof of tenancy. The verification label shown on each review reflects which check passed.
+- Review verification is graded, not binary. `VERIFIED_STAY` is only ever granted by an admin (there is no booking system yet). `VERIFIED_REVIEWER` means the student had a confirmed interaction with the owner — an inquiry the owner responded to, or a scheduled/closed viewing — which is evidence of genuine engagement, not proof they lived there. Everything else is `UNVERIFIED` and starts in moderation rather than published. Each review displays which label applies.
