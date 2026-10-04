@@ -10,7 +10,7 @@ Built with Next.js (App Router) + TypeScript + Tailwind, PostgreSQL via Prisma, 
 
 These are product constraints, not aspirations. They are enforced in code and covered by tests.
 
-1. **Nothing is fabricated.** Reviews, verification statuses, and identities all come from real rows written by real actions. Seeded data is flagged `isDemoData` and labelled as demo in the UI.
+1. **Nothing is fabricated.** Reviews, verification statuses, and identities all come from real rows written by real actions. Seeded reference data (universities, campuses, areas) carries `isDemoData` and is badged as demo in the UI; seeded people are identifiable by the reserved `@studentnest.test` domain.
 2. **A verification badge is never shown unless verification actually happened.** `VERIFICATION_EXPLAINER` is rendered next to every badge to say what it does and does not mean.
 3. **Roles are decided on the server.** The session is re-read from the database on every request (`getSessionUser`), so a stale or hand-edited JWT cannot grant a role.
 4. **Owners can respond to reviews but never delete them.** Hiding or rejecting a review requires a written reason that is stored, logged, and shown to the reviewer.
@@ -50,7 +50,7 @@ Created by `npm run db:seed`. All addresses use the reserved `.test` TLD, so no 
 
 | Role | Email | Password |
 | --- | --- | --- |
-| Admin | `admin@studentnest.test` | `Admin!2345` |
+| Admin | `admin@studentnest.test` | *you choose — see below* |
 | Student | `chi.student@studentnest.test` | `Student!2345` |
 | Student | `tolu.student@studentnest.test` | `Student!2345` |
 | Landlord | `emeka.owner@studentnest.test` | `Owner!2345` |
@@ -58,7 +58,59 @@ Created by `npm run db:seed`. All addresses use the reserved `.test` TLD, so no 
 | Agent / caretaker | `blessing.caretaker@studentnest.test` | `Owner!2345` |
 | Agent | `segun.agent@studentnest.test` | `Owner!2345` |
 
-There are 18 accounts in total (1 admin, 5 landlords, 2 agents, 10 students) plus 18 listings, 25 reviews and 9 roommate profiles. The seeder prints the full list when it runs. Override the admin account with `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`.
+There are 18 accounts in total (1 admin, 5 landlords, 2 agents, 10 students) plus 18 listings, 25 reviews and 9 roommate profiles. The seeder prints the full list when it runs.
+
+The student and landlord passwords are throwaway credentials for accounts that can only see their own data; override them with `SEED_STUDENT_PASSWORD` / `SEED_OWNER_PASSWORD` if your development database is reachable by anyone else. The e2e suite signs in with them, so pass the same values as `E2E_PASSWORD` / `E2E_OWNER_PASSWORD`.
+
+### The development admin account
+
+The admin password is **not** hard-coded anywhere and has **no** default. The account can read every private identity document, promote other admins, and delete listings, so a published fallback password would be a real credential sitting in source control.
+
+Set it in `.env` before seeding:
+
+```bash
+SEED_ADMIN_EMAIL="admin@studentnest.test"
+SEED_ADMIN_PASSWORD="<your own strong password>"
+```
+
+Then:
+
+```bash
+npm run db:seed
+```
+
+Leave `SEED_ADMIN_PASSWORD` unset (or empty) and the seeder generates a random one with `crypto.randomBytes` and prints it **once**, at the end of the run. It is stored only as a bcrypt hash, so if you miss it, set the variable and re-run.
+
+Sign in at `/login` with that email and password, then go to **`/admin`**.
+
+The seeder refuses to run when `NODE_ENV=production`, because it wipes the database first. For a production admin, promote an existing account through the admin UI (`/admin/users` → *Make admin*) or write a one-off script — never seed.
+
+**Already have a database?** The seeder wipes and recreates everything, so you do not need to re-run it just to get in. Check whether an admin already exists:
+
+```bash
+npx prisma db execute --stdin <<< "SELECT email, role, status FROM \"User\" WHERE role = 'ADMIN';"
+```
+
+If you have an older database seeded before the default password was removed, that admin still uses whatever `SEED_ADMIN_PASSWORD` was in your `.env` at the time. To replace it without reseeding, set `SEED_ADMIN_PASSWORD` and re-run the seeder, or hash a new password yourself and update the row.
+
+### Admin panel
+
+Every page lives under `/admin` and is gated by `requireRolePage("ADMIN")` in `src/app/(admin)/layout.tsx`, so a single check covers the whole subtree. Each backing API route independently re-checks with `requireRole("ADMIN")` — the layout is not the only line of defence.
+
+| Path | What you do there |
+| --- | --- |
+| `/admin` | Overview: queue depths and the counts that need attention |
+| `/admin/users` | All roles — students, landlords, agents, admins. Filter by role/status, search by name or email, suspend, reactivate, soft-delete, promote to admin, demote |
+| `/admin/verifications` | **Landlord and agent identity.** Approve or reject `IDENTITY`, `OWNERSHIP` and `AGENCY_LICENSE` requests. Opens the private documents; every open is audited |
+| `/admin/properties` | Listings. Approve into search, reject, suspend, moderate. Filter by owner or status |
+| `/admin/reviews` | Review moderation: publish, hide, reject, dispute. Hiding requires a written reason that the reviewer sees |
+| `/admin/reports` | Reports against properties, reviews, users and messages. Move through `OPEN → UNDER_REVIEW → RESOLVED / DISMISSED` |
+| `/admin/universities` | Reference data: universities, campuses, neighbourhoods |
+| `/admin/analytics` | Registrations, listing and review volume over a time window |
+| `/admin/audit-logs` | Append-only record of who did what and why. Sensitive metadata keys are redacted |
+| `/admin/settings` | Live/mock status of every integration, plus `AUTH_SECRET` presence |
+
+Students have no verification workflow of their own — there is nothing to verify about a student account. They are managed at `/admin/users` (suspend, reactivate, delete) and their reviews are moderated at `/admin/reviews`.
 
 ---
 
@@ -181,11 +233,30 @@ npm run db:seed        # optional demo data
 
 Migrations are committed under `prisma/migrations/`. Schema changes should be made with `npx prisma migrate dev --name <change>` so the SQL is reviewable.
 
-Local development on Windows used a throwaway cluster on port 5433:
+Local development on Windows used a standalone cluster on port 5433:
 
 ```
 DATABASE_URL="postgresql://studentnest:studentnest@127.0.0.1:5433/studentnest?schema=public"
 ```
+
+That cluster is **not** a Windows service, so it does not come back after a reboot or a sleep
+cycle. When Prisma reports `Can't reach database server at 127.0.0.1:5433`, start it first and
+then start the app:
+
+```bash
+"/c/Program Files/PostgreSQL/18/bin/pg_ctl" \
+  -D "C:/Users/user/AppData/Local/Temp/studentnest-pgdata" \
+  -o "-p 5433 -c listen_addresses=127.0.0.1" \
+  -l "C:/Users/user/AppData/Local/Temp/studentnest-pg.log" start
+
+npm run dev
+```
+
+`pg_ctl` blocks the Git Bash wrapper even though the server has started and detached — confirm
+with `netstat -ano | grep 5433` rather than waiting for the command to return. Because the data
+directory lives under `Temp`, the cluster can also be deleted by disk cleanup; if that happens,
+re-create it with `initdb` and re-run `npm run db:migrate && npm run db:seed`. A separate
+PostgreSQL service owns port 5432 and is a different cluster — do not point `DATABASE_URL` at it.
 
 ---
 

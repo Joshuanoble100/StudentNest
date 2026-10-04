@@ -235,8 +235,11 @@ export default async function AdminVerificationsPage({
                     </>
                   ) : (
                     <p className="text-xs text-slate-500">
-                      Already decided. A new decision overwrites the previous one and notifies the
-                      applicant again.
+                      Decided{request.reviewedBy ? ` by ${request.reviewedBy.name}` : ""}
+                      {request.reviewedAt ? ` on ${formatDate(request.reviewedAt)}` : ""}. Decisions
+                      are final — the API rejects a second decision on the same request, so there is
+                      nothing to change here. If the applicant resubmits, a new request appears in
+                      the Pending tab.
                     </p>
                   )}
                 </div>

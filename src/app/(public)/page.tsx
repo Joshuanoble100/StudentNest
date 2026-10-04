@@ -76,7 +76,7 @@ export default async function HomePage() {
             {neighborhoods.map((area) => (
               <Link
                 key={area.id}
-                href={`/locations/${area.slug}`}
+                href={`/properties?neighborhood=${encodeURIComponent(area.slug)}`}
                 className="group rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-brand-300 hover:shadow-md"
               >
                 <span className="flex items-center gap-2 text-sm font-semibold text-slate-900 group-hover:text-brand-700">

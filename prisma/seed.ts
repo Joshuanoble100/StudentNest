@@ -22,6 +22,7 @@ import { NEIGHBORHOODS, UNIVERSITIES } from "./seed/locations";
 import {
   ADMIN_EMAIL,
   ADMIN_PASSWORD,
+  ADMIN_PASSWORD_IS_GENERATED,
   OWNER_PASSWORD,
   ROOMMATES,
   STUDENT_PASSWORD,
@@ -808,6 +809,13 @@ function printSummary(): void {
   console.log("\nAdmin");
   line("email", ADMIN_EMAIL);
   line("password", ADMIN_PASSWORD);
+  if (ADMIN_PASSWORD_IS_GENERATED) {
+    console.log(
+      "  ^ generated for this run because SEED_ADMIN_PASSWORD is unset. It is stored\n" +
+        "    only as a bcrypt hash, so this is the one time it is shown — copy it now, or\n" +
+        "    set SEED_ADMIN_PASSWORD in .env and re-run to pick your own.",
+    );
+  }
   console.log("\nLandlords / agents (password for all: " + OWNER_PASSWORD + ")");
   for (const user of USERS.filter((u) => u.role === "LANDLORD" || u.role === "AGENT")) {
     line(user.email, `${user.role.toLowerCase()} — ${user.name}`);
@@ -825,6 +833,15 @@ function printSummary(): void {
 }
 
 async function main(): Promise<void> {
+  // `wipe()` below deletes every row. Refuse to run where that would be
+  // irreversible, rather than trusting the operator to have read the README.
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "[seed] refusing to run with NODE_ENV=production — the seeder wipes the database first " +
+        "and creates demo accounts. Create a first admin with a one-off script instead.",
+    );
+  }
+
   const started = Date.now();
   console.log("[seed] generating placeholder images…");
   const images = await generateSeedImages();

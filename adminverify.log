@@ -1,0 +1,28 @@
+admin email = admin@studentnest.test (password read from .env, 10 chars, not printed)
+SIGN-IN ok -> /admin
+
+=== admin pages ===
+200 /admin                   h1="Overview"
+200 /admin/users             h1="Users"
+200 /admin/verifications     h1="Verification requests"
+200 /admin/properties        h1="Listings"
+200 /admin/reviews           h1="Reviews"
+200 /admin/reports           h1="Reports"
+200 /admin/universities      h1="Universities & areas"
+200 /admin/analytics         h1="Analytics"
+200 /admin/audit-logs        h1="Audit log"
+200 /admin/settings          h1="Settings"
+
+=== /admin/users role filters ===
+200 role=STUDENT  rows=29 "11 accounts match these filters. Suspension also pulls the person's li"
+200 role=LANDLORD rows=24 "6 accounts match these filters. Suspension also pulls the person's lis"
+200 role=AGENT    rows=20 "2 accounts match these filters. Suspension also pulls the person's lis"
+200 role=ADMIN    rows=19 "1 account match these filters. Suspension also pulls the person's list"
+
+=== verification workflow (one real approval) ===
+pending requests rendered: 22
+step: reading first applicant…
+FAILED: locator.innerText: Timeout 10000ms exceeded.
+Call log:
+[2m  - waiting for locator('ul > li').first().locator('p.font-semibold').first()[22m
+

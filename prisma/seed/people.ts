@@ -1,9 +1,30 @@
+import { randomBytes } from "node:crypto";
 import type { SeedRoommate, SeedUser } from "./types";
 
 export const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL || "admin@studentnest.test";
-export const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || "Admin!2345";
-export const STUDENT_PASSWORD = "Student!2345";
-export const OWNER_PASSWORD = "Owner!2345";
+
+/**
+ * The admin password has no literal fallback. A published default for the one
+ * account that can read every private identity document is a credential in
+ * source control, and it survives into any database that was seeded before
+ * anyone thought to change it.
+ *
+ * Set SEED_ADMIN_PASSWORD to choose it. Leave it unset and a random one is
+ * generated per run and printed exactly once, in the seed summary.
+ */
+const generatedAdminPassword = randomBytes(18).toString("base64url");
+export const ADMIN_PASSWORD_IS_GENERATED = !process.env.SEED_ADMIN_PASSWORD;
+export const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || generatedAdminPassword;
+
+/**
+ * Demo passwords for the non-privileged accounts. These are not secrets in the
+ * same sense: they guard throwaway student/landlord rows on a local database,
+ * they are published in the README, and the e2e suite signs in with them. They
+ * are still overridable so a shared or internet-reachable dev database is not
+ * left with a known password.
+ */
+export const STUDENT_PASSWORD = process.env.SEED_STUDENT_PASSWORD || "Student!2345";
+export const OWNER_PASSWORD = process.env.SEED_OWNER_PASSWORD || "Owner!2345";
 
 /**
  * Demo accounts only. Every address uses the reserved .test TLD so nothing can

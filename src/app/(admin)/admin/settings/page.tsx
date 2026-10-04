@@ -219,8 +219,11 @@ export default async function AdminSettingsPage() {
         <CardHeader>
           <CardTitle className="text-red-800">Demo data</CardTitle>
           <CardDescription>
-            Seeded rows are flagged with <code className="text-xs">isDemoData</code> and labelled in
-            the UI so they can never be mistaken for real students, landlords or reviews.
+            Seeded universities, campuses and areas carry{" "}
+            <code className="text-xs">isDemoData</code> and are badged as demo wherever they appear.
+            Seeded people, listings and reviews are not flagged in the schema — they are
+            identifiable by the reserved <code className="text-xs">@studentnest.test</code> email
+            domain, so treat that domain as the marker when cleaning up.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-slate-700">
